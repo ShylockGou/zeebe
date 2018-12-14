@@ -162,7 +162,10 @@ public class ZbStreamProcessorService implements Service<ZbStreamProcessorServic
             logStreamWriter);
 
     typedEventStreamProcessorBuilder
-        .onEvent(ValueType.DEPLOYMENT, DeploymentIntent.CREATED, new DeploymentCreatedProcessor())
+        .onEvent(
+            ValueType.DEPLOYMENT,
+            DeploymentIntent.CREATED,
+            new DeploymentCreatedProcessor(zeebeState.getWorkflowState()))
         .onCommand(
             ValueType.DEPLOYMENT, DeploymentIntent.DISTRIBUTE, deploymentDistributeProcessor);
   }

@@ -79,16 +79,28 @@ public class TriggerTimerProcessor implements TypedRecordProcessor<TimerRecord> 
 
       final ElementInstance elementInstance =
           workflowState.getElementInstanceState().getInstance(elementInstanceKey);
-      if (shouldReschedule(timer) && elementInstance != null) {
 
-        final ExecutableCatchEventElement event =
-            getCatchEventById(
-                workflowState,
-                elementInstance.getValue().getWorkflowKey(),
-                timer.getHandlerNodeId());
-        rescheduleTimer(timer, streamWriter, event);
+      if (shouldReschedule(timer)) {
+        ExecutableCatchEventElement event = null;
+
+        if (elementInstance != null) {
+          event =
+              getCatchEventById(
+                  workflowState,
+                  elementInstance.getValue().getWorkflowKey(),
+                  timer.getHandlerNodeId());
+        } else if (elementInstanceKey == -1) {
+          event =
+              workflowState
+                  .getLatestWorkflowVersionByProcessId(timer.getBpmnId())
+                  .getWorkflow()
+                  .getStartEvent();
+        }
+
+        if (event != null) {
+          rescheduleTimer(timer, streamWriter, event);
+        }
       }
-
     } else {
       streamWriter.appendRejection(
           record, RejectionType.NOT_APPLICABLE, "activity is not active anymore");

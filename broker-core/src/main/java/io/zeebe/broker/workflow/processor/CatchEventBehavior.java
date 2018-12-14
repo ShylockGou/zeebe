@@ -159,9 +159,12 @@ public class CatchEventBehavior {
         workflowInstanceRecord.setBpmnProcessId(bpmnId);
         workflowInstanceRecord.setPayload(eventPayload);
         streamWriter.appendNewCommand(WorkflowInstanceIntent.CREATE, workflowInstanceRecord);
+
         return true;
       }
+
       return false;
+
     } else {
       // ignore the event if the element is left
       return false;
