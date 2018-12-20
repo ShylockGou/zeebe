@@ -165,7 +165,8 @@ public class ZbStreamProcessorService implements Service<ZbStreamProcessorServic
         .onEvent(
             ValueType.DEPLOYMENT,
             DeploymentIntent.CREATED,
-            new DeploymentCreatedProcessor(zeebeState.getWorkflowState()))
+            new DeploymentCreatedProcessor(
+                zeebeState, clusterCfg, subscriptionApiClientInjector.getValue()))
         .onCommand(
             ValueType.DEPLOYMENT, DeploymentIntent.DISTRIBUTE, deploymentDistributeProcessor);
   }

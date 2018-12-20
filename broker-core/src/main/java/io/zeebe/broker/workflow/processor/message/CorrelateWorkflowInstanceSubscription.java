@@ -41,6 +41,7 @@ public final class CorrelateWorkflowInstanceSubscription
 
   public static final Duration SUBSCRIPTION_TIMEOUT = Duration.ofSeconds(10);
   public static final Duration SUBSCRIPTION_CHECK_INTERVAL = Duration.ofSeconds(30);
+  public static final int NO_WORKFLOW_KEY = -1;
 
   private final CatchEventBehavior catchEventBehavior;
   private final TopologyManager topologyManager;
@@ -105,7 +106,7 @@ public final class CorrelateWorkflowInstanceSubscription
     final boolean isOccurred =
         catchEventBehavior.occurEventForElement(
             elementInstanceKey,
-            null,
+            NO_WORKFLOW_KEY,
             subscription.getHandlerNodeId(),
             record.getValue().getPayload(),
             streamWriter);

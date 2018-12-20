@@ -70,35 +70,18 @@ public class TriggerTimerProcessor implements TypedRecordProcessor<TimerRecord> 
     final boolean isOccurred =
         catchEventBehavior.occurEventForElement(
             elementInstanceKey,
-            timer.getBpmnId(),
+            timer.getWorkflowKey(),
             timer.getHandlerNodeId(),
             EMPTY_DOCUMENT,
             streamWriter);
     if (isOccurred) {
       streamWriter.appendFollowUpEvent(record.getKey(), TimerIntent.TRIGGERED, timer);
 
-      final ElementInstance elementInstance =
-          workflowState.getElementInstanceState().getInstance(elementInstanceKey);
-
       if (shouldReschedule(timer)) {
-        ExecutableCatchEventElement event = null;
+        final ExecutableCatchEventElement timerEvent = getTimerEvent(elementInstanceKey, timer);
 
-        if (elementInstance != null) {
-          event =
-              getCatchEventById(
-                  workflowState,
-                  elementInstance.getValue().getWorkflowKey(),
-                  timer.getHandlerNodeId());
-        } else if (elementInstanceKey == -1) {
-          event =
-              workflowState
-                  .getLatestWorkflowVersionByProcessId(timer.getBpmnId())
-                  .getWorkflow()
-                  .getStartEvent();
-        }
-
-        if (event != null) {
-          rescheduleTimer(timer, streamWriter, event);
+        if (timerEvent != null && timerEvent.isTimer()) {
+          rescheduleTimer(timer, streamWriter, timerEvent);
         }
       }
     } else {
@@ -109,6 +92,20 @@ public class TriggerTimerProcessor implements TypedRecordProcessor<TimerRecord> 
 
   private boolean shouldReschedule(TimerRecord timer) {
     return timer.getRepetitions() == RepeatingInterval.INFINITE || timer.getRepetitions() > 1;
+  }
+
+  private ExecutableCatchEventElement getTimerEvent(long elementInstanceKey, TimerRecord timer) {
+    final ElementInstance elementInstance =
+        workflowState.getElementInstanceState().getInstance(elementInstanceKey);
+
+    if (elementInstance != null) {
+      return getCatchEventById(
+          workflowState, elementInstance.getValue().getWorkflowKey(), timer.getHandlerNodeId());
+    } else if (elementInstanceKey == -1) {
+      return workflowState.getWorkflowByKey(timer.getWorkflowKey()).getWorkflow().getStartEvent();
+    }
+
+    return null;
   }
 
   private void rescheduleTimer(
@@ -129,7 +126,7 @@ public class TriggerTimerProcessor implements TypedRecordProcessor<TimerRecord> 
     final RepeatingInterval timer =
         new RepeatingInterval(repetitions, event.getTimer().getInterval());
     catchEventBehavior.subscribeToTimerEvent(
-        record.getElementInstanceKey(), event.getId(), record.getBpmnId(), timer, writer);
+        record.getElementInstanceKey(), record.getWorkflowKey(), event.getId(), timer, writer);
   }
 
   private ExecutableCatchEventElement getCatchEventById(
