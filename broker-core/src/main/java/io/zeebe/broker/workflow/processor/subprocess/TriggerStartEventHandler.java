@@ -17,22 +17,54 @@
  */
 package io.zeebe.broker.workflow.processor.subprocess;
 
+import io.zeebe.broker.workflow.model.element.ExecutableCatchEventElement;
 import io.zeebe.broker.workflow.model.element.ExecutableFlowElementContainer;
-import io.zeebe.broker.workflow.model.element.ExecutableFlowNode;
 import io.zeebe.broker.workflow.processor.BpmnStepContext;
 import io.zeebe.broker.workflow.processor.BpmnStepHandler;
+import io.zeebe.broker.workflow.state.IndexedRecord;
+import io.zeebe.broker.workflow.state.WorkflowState;
 import io.zeebe.protocol.impl.record.value.workflowinstance.WorkflowInstanceRecord;
 import io.zeebe.protocol.intent.WorkflowInstanceIntent;
+import java.util.List;
 
 public class TriggerStartEventHandler implements BpmnStepHandler<ExecutableFlowElementContainer> {
+
+  private WorkflowState workflowState;
+
+  public TriggerStartEventHandler(WorkflowState workflowState) {
+    this.workflowState = workflowState;
+  }
 
   @Override
   public void handle(BpmnStepContext<ExecutableFlowElementContainer> context) {
     final ExecutableFlowElementContainer element = context.getElement();
-    final ExecutableFlowNode startEvent = element.getStartEvent();
+
+    final long wfInstanceKey = context.getRecord().getValue().getWorkflowInstanceKey();
+
+    final List<IndexedRecord> deferredTokens =
+      workflowState.getElementInstanceState().getDeferredTokens(wfInstanceKey);
 
     final WorkflowInstanceRecord value = context.getValue();
-    value.setElementId(startEvent.getId());
+
+    if (deferredTokens.size() == 0) {
+      final List<ExecutableCatchEventElement> startEvents = element.getStartEvents();
+
+      if (startEvents.size() == 1) {
+        value.setElementId(startEvents.get(0).getId());
+      } else if (startEvents.size() > 1) {
+        throw new RuntimeException("Workflow has multiple start events but no deferred token was found");
+      }
+
+    } else if (deferredTokens.size() == 1) {
+      value.setElementId(deferredTokens.get(0).getValue().getElementId());
+      workflowState.getElementInstanceState().consumeToken(wfInstanceKey);
+
+    } else {
+      throw new RuntimeException(
+        "Must have exactly one triggering start event per workflow instance. Found: "
+          + deferredTokens.size());
+    }
+
     value.setScopeInstanceKey(context.getRecord().getKey());
 
     context.getOutput().appendNewEvent(WorkflowInstanceIntent.EVENT_TRIGGERING, value);
