@@ -17,6 +17,7 @@
  */
 package io.zeebe.broker.workflow.processor.timer;
 
+import static io.zeebe.broker.workflow.state.TimerInstance.NO_ELEMENT_INSTANCE;
 import static io.zeebe.msgpack.value.DocumentValue.EMPTY_DOCUMENT;
 import static io.zeebe.util.buffer.BufferUtil.bufferAsString;
 
@@ -67,13 +68,16 @@ public class TriggerTimerProcessor implements TypedRecordProcessor<TimerRecord> 
 
     workflowState.getTimerState().remove(timerInstance);
 
-    final boolean isOccurred =
-        catchEventBehavior.occurEventForElement(
-            elementInstanceKey,
-            timer.getWorkflowKey(),
-            timer.getHandlerNodeId(),
-            EMPTY_DOCUMENT,
-            streamWriter);
+    boolean isOccurred = true;
+
+    if (elementInstanceKey == NO_ELEMENT_INSTANCE) {
+      catchEventBehavior.occurStartEvent(timer.getWorkflowKey(), EMPTY_DOCUMENT, streamWriter);
+    } else {
+      isOccurred =
+          catchEventBehavior.occurEventForElement(
+              elementInstanceKey, timer.getHandlerNodeId(), EMPTY_DOCUMENT, streamWriter);
+    }
+
     if (isOccurred) {
       streamWriter.appendFollowUpEvent(record.getKey(), TimerIntent.TRIGGERED, timer);
 
@@ -101,7 +105,7 @@ public class TriggerTimerProcessor implements TypedRecordProcessor<TimerRecord> 
     if (elementInstance != null) {
       return getCatchEventById(
           workflowState, elementInstance.getValue().getWorkflowKey(), timer.getHandlerNodeId());
-    } else if (elementInstanceKey == -1) {
+    } else if (elementInstanceKey == NO_ELEMENT_INSTANCE) {
       return workflowState.getWorkflowByKey(timer.getWorkflowKey()).getWorkflow().getStartEvent();
     }
 

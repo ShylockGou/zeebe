@@ -28,6 +28,8 @@ import org.agrona.concurrent.UnsafeBuffer;
 
 public class TimerInstance implements DbValue {
 
+  public static final int NO_ELEMENT_INSTANCE = -1;
+
   private final DirectBuffer handlerNodeId = new UnsafeBuffer(0, 0);
   private long workflowKey;
   private long key;

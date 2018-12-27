@@ -17,11 +17,11 @@
  */
 package io.zeebe.broker.workflow;
 
+import static io.zeebe.broker.workflow.state.TimerInstance.NO_ELEMENT_INSTANCE;
 import static io.zeebe.protocol.intent.WorkflowInstanceIntent.EVENT_ACTIVATED;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.zeebe.broker.test.EmbeddedBrokerRule;
-import io.zeebe.broker.workflow.deployment.distribute.processor.DeploymentCreatedProcessor;
 import io.zeebe.exporter.record.Assertions;
 import io.zeebe.exporter.record.value.DeploymentRecordValue;
 import io.zeebe.exporter.record.value.TimerRecordValue;
@@ -36,12 +36,10 @@ import io.zeebe.test.broker.protocol.clientapi.ExecuteCommandResponse;
 import io.zeebe.test.broker.protocol.clientapi.PartitionTestClient;
 import io.zeebe.test.util.record.RecordingExporter;
 import java.time.Duration;
-import java.util.concurrent.TimeUnit;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.RuleChain;
-import org.junit.rules.Timeout;
 
 public class TimerStartEventTest {
 
@@ -80,24 +78,20 @@ public class TimerStartEventTest {
     testClient = apiRule.partitionClient();
   }
 
-  @Rule public Timeout timeoutRule = new Timeout(2, TimeUnit.MINUTES);
-
   @Test
   public void shouldCreateTimer() {
     // when
     testClient.deploy(SIMPLE_MODEL);
 
     // then
-    Assertions.assertThat(RecordingExporter.deploymentRecords(DeploymentIntent.CREATED).getFirst())
-        .isNotNull();
+    assertThat(RecordingExporter.deploymentRecords(DeploymentIntent.CREATED).exists()).isTrue();
     final TimerRecordValue timerRecord =
         RecordingExporter.timerRecords(TimerIntent.CREATED).getFirst().getValue();
 
     Assertions.assertThat(timerRecord)
-        .hasDueDate(brokerRule.getClock().getCurrentTimeInMillis() + 1000);
-    Assertions.assertThat(timerRecord).hasHandlerFlowNodeId("start_1");
-    Assertions.assertThat(timerRecord)
-        .hasElementInstanceKey(DeploymentCreatedProcessor.NO_ELEMENT_INSTANCE);
+        .hasDueDate(brokerRule.getClock().getCurrentTimeInMillis() + 1000)
+        .hasHandlerFlowNodeId("start_1")
+        .hasElementInstanceKey(NO_ELEMENT_INSTANCE);
   }
 
   @Test
@@ -110,24 +104,21 @@ public class TimerStartEventTest {
             .getValue();
 
     // then
-    Assertions.assertThat(RecordingExporter.timerRecords(TimerIntent.CREATED).getFirst())
-        .isNotNull();
+    assertThat(RecordingExporter.timerRecords(TimerIntent.CREATED).exists()).isTrue();
     brokerRule.getClock().addTime(Duration.ofSeconds(2));
 
-    Assertions.assertThat(RecordingExporter.timerRecords(TimerIntent.TRIGGERED).getFirst())
-        .isNotNull();
-    Assertions.assertThat(
-            RecordingExporter.workflowInstanceRecords(WorkflowInstanceIntent.CREATE).getFirst())
-        .isNotNull();
+    assertThat(RecordingExporter.timerRecords(TimerIntent.TRIGGERED).exists()).isTrue();
+    assertThat(RecordingExporter.workflowInstanceRecords(WorkflowInstanceIntent.CREATE).exists())
+        .isTrue();
 
     final WorkflowInstanceRecordValue wfInstanceRecord =
         RecordingExporter.workflowInstanceRecords(WorkflowInstanceIntent.ELEMENT_READY)
             .getFirst()
             .getValue();
 
-    Assertions.assertThat(wfInstanceRecord).hasVersion(1);
-    Assertions.assertThat(wfInstanceRecord).hasBpmnProcessId("process");
     Assertions.assertThat(wfInstanceRecord)
+        .hasVersion(1)
+        .hasBpmnProcessId("process")
         .hasWorkflowKey(deploymentRecord.getDeployedWorkflows().get(0).getWorkflowKey());
   }
 
@@ -137,23 +128,23 @@ public class TimerStartEventTest {
     testClient.deployWithResponse(THREE_SEC_MODEL);
 
     // then
-    assertThat(RecordingExporter.timerRecords(TimerIntent.CREATED).count()).isEqualTo(1);
-    assertThat(RecordingExporter.timerRecords(TimerIntent.CREATED).count()).isEqualTo(1);
+    assertThat(RecordingExporter.timerRecords(TimerIntent.CREATED).exists()).isTrue();
     brokerRule.getClock().addTime(Duration.ofSeconds(3));
 
-    assertThat(RecordingExporter.timerRecords(TimerIntent.TRIGGERED).count()).isEqualTo(1);
+    assertThat(RecordingExporter.timerRecords(TimerIntent.TRIGGERED).exists()).isTrue();
     assertThat(
             RecordingExporter.workflowInstanceRecords(WorkflowInstanceIntent.ELEMENT_READY)
                 .withElementId("process_3")
-                .count())
-        .isEqualTo(1);
-    assertThat(RecordingExporter.timerRecords(TimerIntent.CREATED).count()).isEqualTo(2);
+                .exists())
+        .isTrue();
+    assertThat(RecordingExporter.timerRecords(TimerIntent.CREATED).limit(2).count()).isEqualTo(2);
 
     brokerRule.getClock().addTime(Duration.ofSeconds(3));
-    assertThat(RecordingExporter.timerRecords(TimerIntent.TRIGGERED).count()).isEqualTo(2);
+    assertThat(RecordingExporter.timerRecords(TimerIntent.TRIGGERED).limit(2).count()).isEqualTo(2);
     assertThat(
             RecordingExporter.workflowInstanceRecords(WorkflowInstanceIntent.ELEMENT_READY)
                 .withElementId("process_3")
+                .limit(2)
                 .count())
         .isEqualTo(2);
   }
@@ -168,17 +159,16 @@ public class TimerStartEventTest {
             .getValue();
 
     // then
-    Assertions.assertThat(RecordingExporter.timerRecords(TimerIntent.CREATED).getFirst())
-        .isNotNull();
+    assertThat(RecordingExporter.timerRecords(TimerIntent.CREATED).exists()).isTrue();
     brokerRule.getClock().addTime(Duration.ofSeconds(1));
     final WorkflowInstanceRecordValue instanceCompleted =
         RecordingExporter.workflowInstanceRecords(WorkflowInstanceIntent.ELEMENT_COMPLETED)
             .getFirst()
             .getValue();
 
-    Assertions.assertThat(instanceCompleted).hasBpmnProcessId("process");
-    Assertions.assertThat(instanceCompleted).hasVersion(1);
     Assertions.assertThat(instanceCompleted)
+        .hasBpmnProcessId("process")
+        .hasVersion(1)
         .hasWorkflowKey(deploymentRecord.getDeployedWorkflows().get(0).getWorkflowKey());
   }
 
@@ -186,31 +176,30 @@ public class TimerStartEventTest {
   public void shouldUpdateWorkflow() {
     // when
     testClient.deploy(SIMPLE_MODEL);
-    Assertions.assertThat(RecordingExporter.timerRecords(TimerIntent.CREATED).getFirst())
-        .isNotNull();
+    assertThat(RecordingExporter.timerRecords(TimerIntent.CREATED).exists()).isTrue();
     brokerRule.getClock().addTime(Duration.ofSeconds(1));
 
     // then
-    Assertions.assertThat(
+    assertThat(
             RecordingExporter.workflowInstanceRecords(EVENT_ACTIVATED)
                 .withElementId("end_1")
                 .withBpmnProcessId("process")
                 .withVersion(1)
-                .getFirst())
-        .isNotNull();
+                .exists())
+        .isTrue();
 
     // when
     testClient.deploy(REPEATING_MODEL);
-    assertThat(RecordingExporter.timerRecords(TimerIntent.CREATED).count()).isEqualTo(2);
+    assertThat(RecordingExporter.timerRecords(TimerIntent.CREATED).limit(2).count()).isEqualTo(2);
     brokerRule.getClock().addTime(Duration.ofSeconds(2));
 
-    Assertions.assertThat(
+    assertThat(
             RecordingExporter.workflowInstanceRecords(EVENT_ACTIVATED)
                 .withElementId("end_2")
                 .withBpmnProcessId("process")
                 .withVersion(2)
-                .getFirst())
-        .isNotNull();
+                .exists())
+        .isTrue();
   }
 
   @Test
@@ -218,23 +207,24 @@ public class TimerStartEventTest {
     // when
     testClient.deploy(REPEATING_MODEL);
 
-    assertThat(RecordingExporter.timerRecords(TimerIntent.CREATED).count()).isEqualTo(1);
+    assertThat(RecordingExporter.timerRecords(TimerIntent.CREATED).exists()).isTrue();
     brokerRule.getClock().addTime(Duration.ofSeconds(1));
 
     // then
-    assertThat(RecordingExporter.timerRecords(TimerIntent.TRIGGERED).count()).isEqualTo(1);
+    assertThat(RecordingExporter.timerRecords(TimerIntent.TRIGGERED).exists()).isTrue();
 
     // when
     final BpmnModelInstance nonTimerModel =
         Bpmn.createExecutableProcess("process").startEvent("start_4").endEvent("end_4").done();
     testClient.deploy(nonTimerModel);
 
-    assertThat(RecordingExporter.deploymentRecords(DeploymentIntent.CREATED).count()).isEqualTo(2);
+    assertThat(RecordingExporter.deploymentRecords(DeploymentIntent.CREATED).limit(2).count())
+        .isEqualTo(2);
     brokerRule.getClock().addTime(Duration.ofSeconds(2));
 
     // then
-    assertThat(RecordingExporter.timerRecords(TimerIntent.CANCELED).count()).isEqualTo(1);
-    assertThat(RecordingExporter.timerRecords(TimerIntent.TRIGGERED).count()).isEqualTo(1);
+    assertThat(RecordingExporter.timerRecords(TimerIntent.CANCELED).exists()).isTrue();
+    assertThat(RecordingExporter.timerRecords(TimerIntent.TRIGGERED).exists()).isTrue();
 
     final long workflowInstanceKey = testClient.createWorkflowInstance("process");
 
@@ -244,9 +234,10 @@ public class TimerStartEventTest {
             .getLast()
             .getValue();
 
-    Assertions.assertThat(lastRecord).hasVersion(2);
-    Assertions.assertThat(lastRecord).hasBpmnProcessId("process");
-    Assertions.assertThat(lastRecord).hasWorkflowInstanceKey(workflowInstanceKey);
+    Assertions.assertThat(lastRecord)
+        .hasVersion(2)
+        .hasBpmnProcessId("process")
+        .hasWorkflowInstanceKey(workflowInstanceKey);
   }
 
   @Test
@@ -254,7 +245,7 @@ public class TimerStartEventTest {
     // when
     long beginTime = brokerRule.getClock().getCurrentTimeInMillis();
     testClient.deploy(THREE_SEC_MODEL);
-    assertThat(RecordingExporter.timerRecords(TimerIntent.CREATED).count()).isEqualTo(1);
+    assertThat(RecordingExporter.timerRecords(TimerIntent.CREATED).exists()).isTrue();
     brokerRule.getClock().addTime(Duration.ofSeconds(3));
 
     // then
@@ -279,10 +270,10 @@ public class TimerStartEventTest {
     timerRecord = RecordingExporter.timerRecords(TimerIntent.CREATED).getLast().getValue();
     Assertions.assertThat(timerRecord).hasDueDate(beginTime + 4000);
     brokerRule.getClock().addTime(Duration.ofSeconds(3));
-    assertThat(RecordingExporter.timerRecords(TimerIntent.TRIGGERED).count()).isEqualTo(1);
+    assertThat(RecordingExporter.timerRecords(TimerIntent.TRIGGERED).limit(1).count()).isEqualTo(1);
 
     brokerRule.getClock().addTime(Duration.ofSeconds(1));
-    assertThat(RecordingExporter.timerRecords(TimerIntent.TRIGGERED).count()).isEqualTo(2);
+    assertThat(RecordingExporter.timerRecords(TimerIntent.TRIGGERED).limit(2).count()).isEqualTo(2);
   }
 
   @Test
@@ -293,30 +284,31 @@ public class TimerStartEventTest {
     testClient.deploy(REPEATING_MODEL);
 
     // then
-    assertThat(RecordingExporter.timerRecords(TimerIntent.CREATED).count()).isEqualTo(2);
-
+    assertThat(RecordingExporter.timerRecords(TimerIntent.CREATED).limit(2).count()).isEqualTo(2);
     brokerRule.getClock().addTime(Duration.ofSeconds(1));
+
     assertThat(
             RecordingExporter.workflowInstanceRecords(WorkflowInstanceIntent.ELEMENT_READY)
                 .withElementId("process")
-                .count())
-        .isEqualTo(1);
+                .exists())
+        .isTrue();
     assertThat(
             RecordingExporter.workflowInstanceRecords(WorkflowInstanceIntent.ELEMENT_READY)
                 .withElementId("process_3")
-                .count())
-        .isEqualTo(0);
+                .exists())
+        .isFalse();
 
     brokerRule.getClock().addTime(Duration.ofSeconds(2));
     assertThat(
             RecordingExporter.workflowInstanceRecords(WorkflowInstanceIntent.ELEMENT_READY)
                 .withElementId("process")
+                .limit(2)
                 .count())
         .isEqualTo(2);
     assertThat(
             RecordingExporter.workflowInstanceRecords(WorkflowInstanceIntent.ELEMENT_READY)
                 .withElementId("process_3")
-                .count())
-        .isEqualTo(1);
+                .exists())
+        .isTrue();
   }
 }

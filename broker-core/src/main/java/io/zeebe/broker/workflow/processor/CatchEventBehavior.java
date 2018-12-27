@@ -25,11 +25,9 @@ import io.zeebe.broker.logstreams.processor.TypedStreamWriter;
 import io.zeebe.broker.logstreams.state.ZeebeState;
 import io.zeebe.broker.subscription.command.SubscriptionCommandSender;
 import io.zeebe.broker.workflow.data.TimerRecord;
-import io.zeebe.broker.workflow.deployment.distribute.processor.DeploymentCreatedProcessor;
 import io.zeebe.broker.workflow.model.element.ExecutableCatchEvent;
 import io.zeebe.broker.workflow.model.element.ExecutableCatchEventSupplier;
 import io.zeebe.broker.workflow.model.element.ExecutableMessage;
-import io.zeebe.broker.workflow.processor.message.CorrelateWorkflowInstanceSubscription;
 import io.zeebe.broker.workflow.state.DeployedWorkflow;
 import io.zeebe.broker.workflow.state.ElementInstance;
 import io.zeebe.broker.workflow.state.ElementInstanceState;
@@ -106,7 +104,6 @@ public class CatchEventBehavior {
 
   public boolean occurEventForElement(
       long elementInstanceKey,
-      long workflowKey,
       DirectBuffer eventHandlerId,
       DirectBuffer eventPayload,
       TypedStreamWriter streamWriter) {
@@ -147,24 +144,22 @@ public class CatchEventBehavior {
 
       return true;
 
-    } else if (isStartEvent(elementInstanceKey, workflowKey)) {
-      // if the event is a timer start event
-
-      final DeployedWorkflow workflow = state.getWorkflowState().getWorkflowByKey(workflowKey);
-
-      workflowInstanceRecord.reset();
-      workflowInstanceRecord.setVersion(workflow.getVersion());
-      workflowInstanceRecord.setWorkflowKey(workflow.getKey());
-      workflowInstanceRecord.setBpmnProcessId(workflow.getBpmnProcessId());
-      workflowInstanceRecord.setPayload(eventPayload);
-      streamWriter.appendNewCommand(WorkflowInstanceIntent.CREATE, workflowInstanceRecord);
-
-      return true;
-
     } else {
       // ignore the event if the element is left
       return false;
     }
+  }
+
+  public void occurStartEvent(
+      long workflowKey, DirectBuffer eventPayload, TypedStreamWriter streamWriter) {
+    final DeployedWorkflow workflow = state.getWorkflowState().getWorkflowByKey(workflowKey);
+
+    workflowInstanceRecord.reset();
+    workflowInstanceRecord.setVersion(workflow.getVersion());
+    workflowInstanceRecord.setWorkflowKey(workflow.getKey());
+    workflowInstanceRecord.setBpmnProcessId(workflow.getBpmnProcessId());
+    workflowInstanceRecord.setPayload(eventPayload);
+    streamWriter.appendNewCommand(WorkflowInstanceIntent.CREATE, workflowInstanceRecord);
   }
 
   public void deferEvent(BpmnStepContext<?> context) {
@@ -222,7 +217,7 @@ public class CatchEventBehavior {
             elementInstanceKey, t -> unsubscribeFromTimerEvent(t, writer));
   }
 
-  private void unsubscribeFromTimerEvent(TimerInstance timer, TypedStreamWriter writer) {
+  public void unsubscribeFromTimerEvent(TimerInstance timer, TypedStreamWriter writer) {
     timerRecord
         .setElementInstanceKey(timer.getElementInstanceKey())
         .setDueDate(timer.getDueDate())
@@ -346,10 +341,5 @@ public class CatchEventBehavior {
     public MessageCorrelationKeyException(String message) {
       super(message);
     }
-  }
-
-  private boolean isStartEvent(long elementInstanceKey, long workflowKey) {
-    return elementInstanceKey == DeploymentCreatedProcessor.NO_ELEMENT_INSTANCE
-        && workflowKey != CorrelateWorkflowInstanceSubscription.NO_WORKFLOW_KEY;
   }
 }

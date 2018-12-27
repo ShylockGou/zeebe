@@ -29,7 +29,7 @@ public class TimerRecord extends UnpackedObject {
   private final LongProperty dueDateProp = new LongProperty("dueDate");
   private final StringProperty handlerNodeId = new StringProperty("handlerNodeId");
   private final IntegerProperty repetitionsProp = new IntegerProperty("repetitions");
-  private final LongProperty workflowKeyProp = new LongProperty("workflowKeyProp");
+  private final LongProperty workflowKeyProp = new LongProperty("workflowKey");
 
   public TimerRecord() {
     this.declareProperty(elementInstanceKeyProp)
