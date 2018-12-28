@@ -38,13 +38,13 @@ public class StartEventTransformer implements ModelElementTransformer<StartEvent
   public void transform(StartEvent element, TransformContext context) {
     final ExecutableWorkflow workflow = context.getCurrentWorkflow();
     final ExecutableCatchEventElement startEvent =
-      workflow.getElementById(element.getId(), ExecutableCatchEventElement.class);
+        workflow.getElementById(element.getId(), ExecutableCatchEventElement.class);
 
     if (element.getScope() instanceof FlowNode) {
       final FlowNode scope = (FlowNode) element.getScope();
 
       final ExecutableFlowElementContainer subprocess =
-        workflow.getElementById(scope.getId(), ExecutableFlowElementContainer.class);
+          workflow.getElementById(scope.getId(), ExecutableFlowElementContainer.class);
       subprocess.addStartEvent(startEvent);
     } else {
       // top-level start event
@@ -55,9 +55,9 @@ public class StartEventTransformer implements ModelElementTransformer<StartEvent
   }
 
   private void bindLifecycle(
-    TransformContext context, final ExecutableCatchEventElement startEvent) {
+      TransformContext context, final ExecutableCatchEventElement startEvent) {
     startEvent.bindLifecycleState(WorkflowInstanceIntent.EVENT_TRIGGERING, BpmnStep.APPLY_EVENT);
     startEvent.bindLifecycleState(
-      WorkflowInstanceIntent.EVENT_TRIGGERED, context.getCurrentFlowNodeOutgoingStep());
+        WorkflowInstanceIntent.EVENT_TRIGGERED, context.getCurrentFlowNodeOutgoingStep());
   }
 }

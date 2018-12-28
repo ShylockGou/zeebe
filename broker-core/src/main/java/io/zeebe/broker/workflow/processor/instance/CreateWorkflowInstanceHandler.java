@@ -27,7 +27,6 @@ import io.zeebe.broker.workflow.state.DeployedWorkflow;
 import io.zeebe.broker.workflow.state.IndexedRecord;
 import io.zeebe.broker.workflow.state.WorkflowEngineState;
 import io.zeebe.broker.workflow.state.WorkflowState;
-import io.zeebe.msgpack.value.DocumentValue;
 import io.zeebe.protocol.clientapi.RejectionType;
 import io.zeebe.protocol.impl.record.value.workflowinstance.WorkflowInstanceRecord;
 import io.zeebe.protocol.intent.WorkflowInstanceIntent;
@@ -70,9 +69,7 @@ public class CreateWorkflowInstanceHandler implements WorkflowInstanceCommandHan
 
       final DirectBuffer handlerId = command.getElementId();
 
-      // TODO: verificar as usagens deste metodo porque nao sei se o create instance normal nao usa
-      // o elementId
-      if (handlerId != null && !handlerId.equals(DocumentValue.EMPTY_DOCUMENT)) {
+      if (handlerId != null && handlerId.capacity() != 0) {
         createDeferredStartEvent(
             handlerId, createWorkflowCommand, workflowInstanceKey, eventOutput);
       }
@@ -93,10 +90,10 @@ public class CreateWorkflowInstanceHandler implements WorkflowInstanceCommandHan
     deferredStartEvent.setElementId(startId);
     deferredStartEvent.setScopeInstanceKey(workflowInstanceKey);
 
-    IndexedRecord indexedRecord =
+    final IndexedRecord indexedRecord =
         new IndexedRecord(
             workflowInstanceKey, WorkflowInstanceIntent.EVENT_TRIGGERING, deferredStartEvent);
-    TypedWorkflowInstanceRecord typedWfRecord = new TypedWorkflowInstanceRecord();
+    final TypedWorkflowInstanceRecord typedWfRecord = new TypedWorkflowInstanceRecord();
     typedWfRecord.wrap(indexedRecord);
 
     eventOutput.deferEvent(typedWfRecord);
@@ -106,7 +103,7 @@ public class CreateWorkflowInstanceHandler implements WorkflowInstanceCommandHan
     final long workflowKey = value.getWorkflowKey();
     final DirectBuffer bpmnProcessId = value.getBpmnProcessId();
     final int version = value.getVersion();
-    WorkflowState workflowState = state.getWorkflowState();
+    final WorkflowState workflowState = state.getWorkflowState();
 
     final DeployedWorkflow workflowDefinition;
     if (workflowKey <= 0) {

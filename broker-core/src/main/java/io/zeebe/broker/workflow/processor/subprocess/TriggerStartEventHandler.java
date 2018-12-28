@@ -42,7 +42,7 @@ public class TriggerStartEventHandler implements BpmnStepHandler<ExecutableFlowE
     final long wfInstanceKey = context.getRecord().getValue().getWorkflowInstanceKey();
 
     final List<IndexedRecord> deferredTokens =
-      workflowState.getElementInstanceState().getDeferredTokens(wfInstanceKey);
+        workflowState.getElementInstanceState().getDeferredTokens(wfInstanceKey);
 
     final WorkflowInstanceRecord value = context.getValue();
 
@@ -52,7 +52,8 @@ public class TriggerStartEventHandler implements BpmnStepHandler<ExecutableFlowE
       if (startEvents.size() == 1) {
         value.setElementId(startEvents.get(0).getId());
       } else if (startEvents.size() > 1) {
-        throw new RuntimeException("Workflow has multiple start events but no deferred token was found");
+        throw new RuntimeException(
+            "Workflow has multiple start events but no deferred token was found");
       }
 
     } else if (deferredTokens.size() == 1) {
@@ -61,8 +62,8 @@ public class TriggerStartEventHandler implements BpmnStepHandler<ExecutableFlowE
 
     } else {
       throw new RuntimeException(
-        "Must have exactly one triggering start event per workflow instance. Found: "
-          + deferredTokens.size());
+          "Must have exactly one triggering start event per workflow instance. Found: "
+              + deferredTokens.size());
     }
 
     value.setScopeInstanceKey(context.getRecord().getKey());

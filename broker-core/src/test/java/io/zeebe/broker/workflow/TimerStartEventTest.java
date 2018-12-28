@@ -66,9 +66,9 @@ public class TimerStartEventTest {
           .endEvent("end_3")
           .done();
 
-  public static BpmnModelInstance MULTI_START_MODEL;
+  public static BpmnModelInstance multiStartModel;
 
-  public static BpmnModelInstance MULTI_START_SAME_END_MODEL;
+  public static BpmnModelInstance multiStartSameEndModel;
 
   public EmbeddedBrokerRule brokerRule = new EmbeddedBrokerRule();
 
@@ -82,13 +82,13 @@ public class TimerStartEventTest {
   public static void createModels() {
     ProcessBuilder builder = Bpmn.createExecutableProcess("process_4");
     builder.startEvent("start_4").timerWithCycle("R/PT2S").endEvent("end_4");
-    MULTI_START_MODEL =
+    multiStartModel =
         builder.startEvent("start_5").timerWithCycle("R/PT3S").endEvent("end_5").done();
 
     builder = Bpmn.createExecutableProcess("process_5");
 
     builder.startEvent("start_4").timerWithCycle("R/PT2S").endEvent("end_4");
-    MULTI_START_SAME_END_MODEL =
+    multiStartSameEndModel =
         builder.startEvent("start_5").timerWithCycle("R/PT2S").connectTo("end_4").done();
   }
 
@@ -337,9 +337,9 @@ public class TimerStartEventTest {
   }
 
   @Test
-  public void shouldCreateMultipleTimers() {
+  public void shouldCreateMultipleTimersInSameModel() {
     // when
-    testClient.deploy(MULTI_START_MODEL);
+    testClient.deploy(multiStartModel);
 
     // then
     assertThat(RecordingExporter.timerRecords(TimerIntent.CREATED).limit(2).count()).isEqualTo(2);
@@ -348,14 +348,13 @@ public class TimerStartEventTest {
   }
 
   @Test
-  public void shouldCreateAndCompleteMultipleSimultaneousInstances() {
+  public void shouldRunMultipleBranchesInWorkflowSimultaneously() {
     // when
-    testClient.deploy(MULTI_START_MODEL);
-
-    // then
+    testClient.deploy(multiStartModel);
     assertThat(RecordingExporter.timerRecords(TimerIntent.CREATED).limit(2).count()).isEqualTo(2);
     brokerRule.getClock().addTime(Duration.ofSeconds(3));
 
+    // then
     assertThat(RecordingExporter.timerRecords(TimerIntent.TRIGGERED).limit(2).count()).isEqualTo(2);
     assertThat(
             RecordingExporter.workflowInstanceRecords(WorkflowInstanceIntent.EVENT_TRIGGERED)
@@ -383,16 +382,11 @@ public class TimerStartEventTest {
   @Test
   public void shouldCreateMultipleInstanceAtTheCorrectTimes() {
     // when
-    testClient.deploy(MULTI_START_MODEL);
-
-    // then
+    testClient.deploy(multiStartModel);
     assertThat(RecordingExporter.timerRecords(TimerIntent.CREATED).limit(2).count()).isEqualTo(2);
-
-    // when
     brokerRule.getClock().addTime(Duration.ofSeconds(2));
 
     // then
-    assertThat(RecordingExporter.timerRecords(TimerIntent.TRIGGERED).exists()).isTrue();
     assertThat(
             RecordingExporter.workflowInstanceRecords(WorkflowInstanceIntent.EVENT_TRIGGERED)
                 .withElementId("start_4")
@@ -410,10 +404,7 @@ public class TimerStartEventTest {
                 .exists())
         .isFalse();
 
-    // when
     brokerRule.getClock().addTime(Duration.ofSeconds(1));
-    assertThat(RecordingExporter.timerRecords(TimerIntent.TRIGGERED).limit(2).count()).isEqualTo(2);
-
     assertThat(
             RecordingExporter.workflowInstanceRecords(WorkflowInstanceIntent.EVENT_TRIGGERED)
                 .withElementId("start_5")
@@ -429,13 +420,11 @@ public class TimerStartEventTest {
   @Test
   public void shouldCompleteMultipleSimultaneousInstancesWithSameEndEvent() {
     // when
-    testClient.deploy(MULTI_START_SAME_END_MODEL);
+    testClient.deploy(multiStartSameEndModel);
     assertThat(RecordingExporter.timerRecords(TimerIntent.CREATED).limit(2).count()).isEqualTo(2);
     brokerRule.getClock().addTime(Duration.ofSeconds(2));
 
     // then
-    assertThat(RecordingExporter.timerRecords(TimerIntent.TRIGGERED).limit(2).count()).isEqualTo(2);
-
     assertThat(
             RecordingExporter.workflowInstanceRecords(WorkflowInstanceIntent.EVENT_TRIGGERED)
                 .withElementId("start_4")
